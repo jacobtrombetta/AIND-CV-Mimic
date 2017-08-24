@@ -75,6 +75,7 @@ function onReset() {
 
   // TODO(optional): You can restart the game as well
   // <your code here>
+  resetGameParameters();
 };
 
 // Add a callback to notify when camera access is allowed
@@ -103,6 +104,7 @@ detector.addEventListener("onInitializeSuccess", function() {
 
   // TODO(optional): Call a function to initialize the game, if needed
   // <your code here>
+  resetGameParameters();
 });
 
 // Add a callback to receive the results from processing an image
@@ -134,6 +136,7 @@ detector.addEventListener("onImageResultsSuccess", function(faces, image, timest
 
     // TODO: Call your function to run the game (define it first!)
     // <your code here>
+    minimicMe(faces[0]);
   }
 });
 
@@ -145,17 +148,19 @@ function drawFeaturePoints(canvas, img, face) {
   // Obtain a 2D context object to draw on the canvas
   var ctx = canvas.getContext('2d');
 
-  // TODO: Set the stroke and/or fill style you want for each feature point marker
+  // Set the stroke and/or fill style you want for each feature point marker
   // See: https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D#Fill_and_stroke_styles
-  // <your code here>
+  ctx.strokeStyle = 'white';
   
   // Loop over each feature point in the face
   for (var id in face.featurePoints) {
     var featurePoint = face.featurePoints[id];
 
-    // TODO: Draw feature point, e.g. as a circle using ctx.arc()
+    // Draw feature point, e.g. as a circle using ctx.arc()
     // See: https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/arc
-    // <your code here>
+    ctx.beginPath();
+    ctx.arc(featurePoint.x, featurePoint.y, 2, 0, 2 * Math.PI);
+    ctx.stroke();
   }
 }
 
@@ -164,13 +169,34 @@ function drawEmoji(canvas, img, face) {
   // Obtain a 2D context object to draw on the canvas
   var ctx = canvas.getContext('2d');
 
-  // TODO: Set the font and style you want for the emoji
-  // <your code here>
-  
-  // TODO: Draw it using ctx.strokeText() or fillText()
+  // Set the font and style you want for the emoji
+  ctx.strokeStyle = 'yellow';
+  ctx.font = '56px serif';
+
+  // Draw it using ctx.strokeText() or fillText()
   // See: https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/fillText
-  // TIP: Pick a particular feature point as an anchor so that the emoji sticks to your face
-  // <your code here>
+
+  // Find max X and min Y points for anchoring.
+  var xAnchor = 0.0;
+  var xMin = Infinity;
+  var yAnchor = Infinity;
+  for (var id in face.featurePoints) {
+    var featurePoint = face.featurePoints[id];
+    if (featurePoint.x > xAnchor)
+      xAnchor = featurePoint.x;
+    if (featurePoint.x < xMin)
+      xMin = featurePoint.x;
+    if (featurePoint.y < yAnchor)
+      yAnchor = featurePoint.y;
+  }
+
+  // Make sure emoji is on the image.
+  var pixelPad = 50;
+  if (xAnchor >= width - pixelPad)
+    xAnchor = xMin - pixelPad;
+
+  // Draw the emoji.
+  ctx.fillText(face.emojis.dominantEmoji, xAnchor, yAnchor);
 }
 
 // TODO: Define any variables and functions to implement the Mimic Me! game mechanics
@@ -182,8 +208,62 @@ function drawEmoji(canvas, img, face) {
 // - Unicode values for all emojis recognized by Affectiva are provided above in the list 'emojis'
 // - To check for a match, you can convert the dominant emoji to unicode using the toUnicode() function
 
+var gameIsBeingPlayed = false;
+var score = 0;
+var total = 0;
+var emojiUniCode = 0;
+var timer = 0;
+
+function makeNewEmoji(){
+  emoji = emojis[Math.floor(Math.random() * emojis.length)];
+  timer = new Date().getTime();
+}
+
+function initializeGame(){
+  gameIsBeingPlayed = true;
+  makeNewEmoji();
+}
+
+function didPlayerWin(face){
+  var faceEmoji = toUnicode(face.emojis.dominantEmoji);
+  if (faceEmoji == emoji){
+    score++;
+    total++;
+    makeNewEmoji();
+  }
+}
+
+function didPlayerTimeout(){
+  var now = new Date().getTime();
+  if ( now - timer >= 60000 ){
+    total++;
+    makeNewEmoji();
+  }
+}
+
+function minimicMe(face){
+  // If has not been started yet, start game.
+  if (!gameIsBeingPlayed)
+    initializeGame();
+
+  // Check to see if player got the right emoji.
+  didPlayerWin(face);
+  didPlayerTimeout();
+
+  // Set the emoji that player needs to mimic.
+  setTargetEmoji(emoji);
+  setScore(score, total);
+}
+
 // Optional:
 // - Define an initialization/reset function, and call it from the "onInitializeSuccess" event handler above
 // - Define a game reset function (same as init?), and call it from the onReset() function above
-
-// <your code here>
+function resetGameParameters(){
+  gameIsBeingPlayed = false;
+  score = 0;
+  total = 0;
+  emojiUniCode = 0;
+  timer = 0;
+  setTargetEmoji(emojiUniCode);
+  setScore(score, total);
+}
